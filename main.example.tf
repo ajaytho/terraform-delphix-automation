@@ -1,0 +1,120 @@
+terraform {
+  required_providers {
+    delphix = {
+      version = "~> 0.0.1"
+      source  = "delphix.com/delphix/delphix"
+    }
+  }
+}
+
+variable "url" {
+  default = "http://mydelphixengine.domain.com"
+}
+
+// variable "delphix_admin_password" {}
+variable "delphix_admin_password" {
+  default = "myadminpassword"
+}
+
+variable "num_vdbs" {
+  default = 2
+}
+
+provider "delphix" {
+  url = "${var.url}"
+  delphix_admin_username = "admin"
+  delphix_admin_password = "${var.delphix_admin_password}"
+}
+
+resource "delphix_group" "my-group-1" {
+  name = "BreakFix"
+  description = "Created via Terraform"
+}
+
+resource "delphix_group" "my-group-2" {
+  name = "Dev"
+  description = "Created via Terraform"
+}
+
+resource "delphix_group" "my-group-3" {
+  name = "OBI"
+  description = "Created via Terraform"
+}
+
+resource "delphix_group" "my-group-4" {
+  name = "Oracle Masked Sources"
+  description = "Created via Terraform"
+}
+
+resource "delphix_group" "my-group-5" {
+  name = "Oracle Sources"
+  description = "Created via Terraform"
+}
+
+resource "delphix_group" "my-group-6" {
+  name = "QA"
+  description = "Created via Terraform"
+}
+
+resource delphix_environment my-source-env {
+  name = "atoracle19srcm"
+  description = "Provisioned via Terraform"
+  address = "mysourcehost.domain.com"
+  user_name = "delphix"
+  user_password = "delphix"
+  toolkit_path = "/u01/delphix/toolkit"
+  server_id = "54320"
+}
+
+resource delphix_environment my-target-env {
+  ////workaround for DLPX-57413 | DLPX-46621
+  depends_on = [delphix_environment.my-source-env]
+  name = "atoracle19tgtm"
+  description = "Provisioned via Terraform"
+  address = "mytargethost.domain.com"
+  user_name = "delphix"
+  user_password = "delphix"
+  toolkit_path = "/u01/delphix/toolkit"
+  server_id = "54321"
+}
+
+resource delphix_environment my-standby-env {
+  ////workaround for DLPX-57413 | DLPX-46621
+  depends_on = [delphix_environment.my-source-env]
+  name = "atoracle19sbym"
+  description = "Provisioned via Terraform"
+  address = "mystaginghost.domain.com"
+  user_name = "delphix"
+  user_password = "delphix"
+  toolkit_path = "/u01/delphix/toolkit"
+  server_id = "54322"
+}
+
+resource delphix_data_source_oracle my-dsource {
+  ////workaround for DLPX-57413
+  depends_on = [delphix_environment.my-source-env, delphix_group.my-group-5]
+  name = "DBOMSR8A1718"
+  description = "Ingested via Terraform"
+  user_name = "delphixdb"
+  password = "delphix"
+  group_name = "Oracle Sources"
+  environment = "${delphix_environment.my-source-env.id}"
+  environment_user = "delphix"
+  link_now = true
+  instance = "DBOMSR8A1718"
+  oracle_home = "/u01/app/oracle/product/19.0.0.0/dbhome_1"
+}
+
+resource "delphix_vdb" "my-speedy-data" {
+  depends_on = [delphix_data_source_oracle.my-dsource, delphix_group.my-group-1]
+  count = "${var.num_vdbs}"
+  group_name = "BreakFix"
+  name = "My Speedy VDB ${count.index + 1}"
+  db_name = "speedy${count.index + 1}"
+  source = "${delphix_data_source_oracle.my-dsource.id}"
+  environment = "${delphix_environment.my-target-env.id}"
+  oracle_home = "/u01/app/oracle/product/19.0.0.0/dbhome_1"
+  mount_base = "/mnt/provision"
+}
+
+

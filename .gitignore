@@ -1,0 +1,8 @@
+.terraform.lock.hcl
+.terraform
+*.renamed
+main.tf 
+terraform.tfstate 
+*.backup
+*.sh
+.DS_Store
