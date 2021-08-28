@@ -11,10 +11,13 @@ variable "domain" {
   default = "mydomain.com"
 }
 
-variable "url" {
-  default = "http://atvirengine01m.mydomain.com"
+variable "dlpxhost" {
+  default = "atvirengine01m"
 }
 
+locals {
+  dlpxengine_url = "http://${var.dlpxhost}.${var.domain}"
+}
 // variable "delphix_admin_password" {}
 variable "delphix_admin_password" {
   default = "delphix"
@@ -25,7 +28,7 @@ variable "num_vdbs" {
 }
 
 provider "delphix" {
-  url = var.url
+  url = local.dlpxengine_url
   delphix_admin_username = "admin"
   delphix_admin_password = var.delphix_admin_password
 }
@@ -128,5 +131,3 @@ resource "delphix_vdb" "my-speedy-data" {
   oracle_home = "/u01/app/oracle/product/19.0.0.0/dbhome_1"
   mount_base = "/mnt/provision"
 }
-
-
