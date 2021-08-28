@@ -7,13 +7,17 @@ terraform {
   }
 }
 
+variable "domain" {
+  default = "mydomain.com"
+}
+
 variable "url" {
-  default = "http://mydelphixengine.domain.com"
+  default = "http://atvirengine01m.mydomain.com"
 }
 
 // variable "delphix_admin_password" {}
 variable "delphix_admin_password" {
-  default = "myadminpassword"
+  default = "delphix"
 }
 
 variable "num_vdbs" {
@@ -21,9 +25,9 @@ variable "num_vdbs" {
 }
 
 provider "delphix" {
-  url = "${var.url}"
+  url = var.url
   delphix_admin_username = "admin"
-  delphix_admin_password = "${var.delphix_admin_password}"
+  delphix_admin_password = var.delphix_admin_password
 }
 
 resource "delphix_group" "my-group-1" {
@@ -59,7 +63,7 @@ resource "delphix_group" "my-group-6" {
 resource delphix_environment my-source-env {
   name = "atoracle19srcm"
   description = "Provisioned via Terraform"
-  address = "mysourcehost.domain.com"
+  address = "atoracle19srcm.${var.domain}"
   user_name = "delphix"
   user_password = "delphix"
   toolkit_path = "/u01/delphix/toolkit"
@@ -71,19 +75,27 @@ resource delphix_environment my-target-env {
   depends_on = [delphix_environment.my-source-env]
   name = "atoracle19tgtm"
   description = "Provisioned via Terraform"
-  address = "mytargethost.domain.com"
+  address = "atoracle19tgtm.${var.domain}"
   user_name = "delphix"
   user_password = "delphix"
   toolkit_path = "/u01/delphix/toolkit"
   server_id = "54321"
 }
 
+
+resource time_sleep wait_10_seconds {
+  //workaround for DLPX-46621
+  depends_on = [delphix_environment.my-source-env]
+
+  create_duration = "10s"
+}
+
 resource delphix_environment my-standby-env {
   ////workaround for DLPX-57413 | DLPX-46621
-  depends_on = [delphix_environment.my-source-env]
+  depends_on = [time_sleep.wait_10_seconds]
   name = "atoracle19sbym"
   description = "Provisioned via Terraform"
-  address = "mystaginghost.domain.com"
+  address = "atoracle19sbym.${var.domain}"
   user_name = "delphix"
   user_password = "delphix"
   toolkit_path = "/u01/delphix/toolkit"
@@ -98,7 +110,7 @@ resource delphix_data_source_oracle my-dsource {
   user_name = "delphixdb"
   password = "delphix"
   group_name = "Oracle Sources"
-  environment = "${delphix_environment.my-source-env.id}"
+  environment = delphix_environment.my-source-env.id
   environment_user = "delphix"
   link_now = true
   instance = "DBOMSR8A1718"
@@ -107,12 +119,12 @@ resource delphix_data_source_oracle my-dsource {
 
 resource "delphix_vdb" "my-speedy-data" {
   depends_on = [delphix_data_source_oracle.my-dsource, delphix_group.my-group-1]
-  count = "${var.num_vdbs}"
+  count = var.num_vdbs
   group_name = "BreakFix"
   name = "My Speedy VDB ${count.index + 1}"
   db_name = "speedy${count.index + 1}"
-  source = "${delphix_data_source_oracle.my-dsource.id}"
-  environment = "${delphix_environment.my-target-env.id}"
+  source = delphix_data_source_oracle.my-dsource.id
+  environment = delphix_environment.my-target-env.id
   oracle_home = "/u01/app/oracle/product/19.0.0.0/dbhome_1"
   mount_base = "/mnt/provision"
 }
